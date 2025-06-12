@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planetary Computer → Earth‑Search Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen flex items-center justify-center bg-emerald-50 p-4">
+    <div
+      class="bg-white/90 backdrop-blur-lg shadow-xl rounded-2xl p-8 w-full max-w-xl space-y-6"
+    >
+      <h1 class="text-2xl font-semibold text-emerald-700">
+        Planetary&nbsp;Computer&nbsp;→&nbsp;Earth‑Search Converter
+      </h1>
+
+      <label class="block">
+        <span class="text-sm text-gray-600">Planetary Computer ID or URL</span>
+        <input
+          id="input"
+          type="text"
+          placeholder="Paste ID or URL..."
+          class="mt-1 block w-full rounded-lg border-gray-300 focus:ring-emerald-600 focus:border-emerald-600"
+        />
+      </label>
+
+      <button
+        onclick="convert()"
+        class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition"
+      >
+        Convert
+      </button>
+
+      <div id="output" class="hidden space-y-4">
+        <div class="flex items-center">
+          <span id="earthId" class="flex-1 break-all font-mono"></span>
+          <button
+            class="ml-2 text-emerald-600 hover:text-emerald-800"
+            onclick="copyText('earthId')"
+          >
+            Copy
+          </button>
+        </div>
+        <div class="flex items-center">
+          <a
+            id="pcUrl"
+            class="flex-1 break-all font-mono underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          ></a>
+          <button
+            class="ml-2 text-emerald-600 hover:text-emerald-800"
+            onclick="copyText('pcUrl')"
+          >
+            Copy
+          </button>
+        </div>
+        <div class="flex items-center">
+          <a
+            id="earthUrl"
+            class="flex-1 break-all font-mono underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          ></a>
+          <button
+            class="ml-2 text-emerald-600 hover:text-emerald-800"
+            onclick="copyText('earthUrl')"
+          >
+            Copy
+          </button>
+        </div>
+
+        <!-- Thumbnails -->
+        <div id="thumbs" class="hidden flex flex-col md:flex-row gap-4 pt-4">
+          <div class="flex-1">
+            <h3 class="text-sm font-medium text-gray-700">Planetary Computer preview</h3>
+            <img
+              id="pcThumb"
+              alt="Planetary Computer preview image"
+              class="mt-1 w-full rounded-lg shadow border border-gray-200"
+            />
+          </div>
+          <div class="flex-1">
+            <h3 class="text-sm font-medium text-gray-700">Earth‑Search preview</h3>
+            <img
+              id="esThumb"
+              alt="Earth‑Search preview image"
+              class="mt-1 w-full rounded-lg shadow border border-gray-200"
+            />
+          </div>
+        </div>
+      </div>
+
+      <p id="error" class="text-red-600 text-sm"></p>
+
+      <footer class="text-xs text-gray-500 pt-4 border-t border-gray-200">
+        Works for Sentinel‑2 L2A product IDs. Host this file on GitHub Pages and you’re set.
+      </footer>
+    </div>
+
+    <script>
+      async function convert() {
+        const inputVal = document.getElementById('input').value.trim();
+        const errorEl = document.getElementById('error');
+        errorEl.textContent = '';
+
+        // Extract the item ID if a full Planetary Computer URL was pasted
+        let id = inputVal;
+        const idx = inputVal.indexOf('/items/');
+        if (idx !== -1) {
+          id = inputVal.substring(idx + 7);
+        }
+
+        // Regex for Planetary Computer Sentinel‑2 L2A product IDs
+        const match = id.match(
+          /^(S2[AB])_MSIL2A_(\d{8})T\d{6}_R\d{3}_T(\d{2}[A-Z]{3})_/
+        );
+        if (!match) {
+          errorEl.textContent = 'Could not parse that ID — is it a Sentinel‑2 L2A product?';
+          document.getElementById('output').classList.add('hidden');
+          return;
+        }
+
+        const sat = match[1];
+        const date = match[2];
+        const tile = match[3];
+
+        const earthId = `${sat}_${tile}_${date}_0_L2A`;
+        const earthUrl = `https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/${earthId}`;
+        const pcUrl = `https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-2-l2a/items/${id}`;
+
+        // Populate text/links
+        document.getElementById('earthId').textContent = earthId;
+
+        const pcUrlEl = document.getElementById('pcUrl');
+        pcUrlEl.textContent = pcUrl;
+        pcUrlEl.href = pcUrl;
+
+        const earthUrlEl = document.getElementById('earthUrl');
+        earthUrlEl.textContent = earthUrl;
+        earthUrlEl.href = earthUrl;
+
+        document.getElementById('output').classList.remove('hidden');
+
+        // Load thumbnails
+        await loadThumbnails(pcUrl, earthUrl);
+      }
+
+      async function loadThumbnails(pcUrl, earthUrl) {
+        const thumbsEl = document.getElementById('thumbs');
+        const pcThumbEl = document.getElementById('pcThumb');
+        const esThumbEl = document.getElementById('esThumb');
+
+        thumbsEl.classList.add('hidden');
+        pcThumbEl.removeAttribute('src');
+        esThumbEl.removeAttribute('src');
+
+        try {
+          /* Planetary Computer thumbnail: use only rendered_preview asset */
+          const pcResp = await fetch(pcUrl);
+          if (pcResp.ok) {
+            const pcJson = await pcResp.json();
+            const pcThumb = pcJson.assets?.rendered_preview?.href;
+            if (pcThumb) pcThumbEl.src = pcThumb;
+          }
+
+          /* Earth‑Search thumbnail */
+          const esResp = await fetch(earthUrl);
+          if (esResp.ok) {
+            const esJson = await esResp.json();
+            const esThumb = esJson.assets?.rendered_preview?.href || esJson.links?.find((l) => l.rel === 'thumbnail')?.href;
+            if (esThumb) esThumbEl.src = esThumb;
+          }
+        } catch (err) {
+          console.error('Thumbnail fetch error', err);
+        }
+
+        // Show thumbnails if at least one loaded
+        if (pcThumbEl.getAttribute('src') || esThumbEl.getAttribute('src')) {
+          thumbsEl.classList.remove('hidden');
+        }
+      }
+
+      function copyText(elId) {
+        const text = document.getElementById(elId).textContent;
+        navigator.clipboard.writeText(text);
+      }
+    </script>
+  </body>
+</html>
