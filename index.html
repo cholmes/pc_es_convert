@@ -7,20 +7,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="min-h-screen flex items-center justify-center bg-emerald-50 p-4">
-    <div
-      class="bg-white/90 backdrop-blur-lg shadow-xl rounded-2xl p-8 w-full max-w-xl space-y-6"
-    >
+    <div class="bg-white/90 backdrop-blur-lg shadow-xl rounded-2xl p-8 w-full max-w-xl space-y-6">
       <h1 class="text-2xl font-semibold text-emerald-700 text-center">
         Planetary&nbsp;Computer&nbsp;→&nbsp;Earth‑Search Converter
       </h1>
 
-      <!-- About blurb -->
+      <!-- About -->
       <p class="text-sm text-gray-700 text-center">
-        This utility converts <strong>Sentinel‑2 Level‑2A COGs</strong> referenced in
-        Microsoft’s Planetary Computer STAC items to their matching
-        <strong>Earth‑Search</strong> STAC items backed by the AWS public Level‑2A COG
-        archive. Shareable URLs are created using the <code>#hash</code> so friends can open
-        the page pre‑filled.
+        This utility converts <strong>Sentinel‑2 Level‑2A COG</strong> STAC items from
+        Microsoft’s Planetary Computer to their equivalent STAC items in
+        <strong>Earth‑Search</strong> (AWS). A <code>#hash</code> with the Planetary ID is
+        added so you can share a pre‑filled link.
       </p>
 
       <label class="block">
@@ -40,80 +37,39 @@
         Convert
       </button>
 
+      <!-- Results -->
       <div id="output" class="hidden space-y-4">
         <div class="flex items-center">
           <span id="earthId" class="flex-1 break-all font-mono"></span>
-          <button
-            class="ml-2 text-emerald-600 hover:text-emerald-800"
-            onclick="copyText('earthId')"
-          >
-            Copy
-          </button>
+          <button class="ml-2 text-emerald-600 hover:text-emerald-800" onclick="copyText('earthId')">Copy</button>
         </div>
         <div class="flex items-center">
-          <a
-            id="pcUrl"
-            class="flex-1 break-all font-mono underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          ></a>
-          <button
-            class="ml-2 text-emerald-600 hover:text-emerald-800"
-            onclick="copyText('pcUrl')"
-          >
-            Copy
-          </button>
+          <a id="pcUrl" class="flex-1 break-all font-mono underline" target="_blank" rel="noopener noreferrer"></a>
+          <button class="ml-2 text-emerald-600 hover:text-emerald-800" onclick="copyText('pcUrl')">Copy</button>
         </div>
         <div class="flex items-center">
-          <a
-            id="earthUrl"
-            class="flex-1 break-all font-mono underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          ></a>
-          <button
-            class="ml-2 text-emerald-600 hover:text-emerald-800"
-            onclick="copyText('earthUrl')"
-          >
-            Copy
-          </button>
+          <a id="earthUrl" class="flex-1 break-all font-mono underline" target="_blank" rel="noopener noreferrer"></a>
+          <button class="ml-2 text-emerald-600 hover:text-emerald-800" onclick="copyText('earthUrl')">Copy</button>
         </div>
 
-        <!-- Thumbnails with loading spinners -->
+        <!-- Thumbnails -->
         <div id="thumbs" class="hidden flex flex-col md:flex-row gap-4 pt-4">
-          <!-- Planetary Computer preview -->
           <div class="flex-1">
             <h3 class="text-sm font-medium text-gray-700 mb-1">Planetary Computer preview</h3>
             <div class="relative w-full">
-              <div
-                id="pcSpinner"
-                class="absolute inset-0 flex items-center justify-center"
-              >
+              <div id="pcSpinner" class="absolute inset-0 flex items-center justify-center">
                 <div class="h-6 w-6 border-2 border-t-transparent border-emerald-600 rounded-full animate-spin"></div>
               </div>
-              <img
-                id="pcThumb"
-                alt="Planetary Computer preview image"
-                class="w-full rounded-lg shadow border border-gray-200 hidden"
-              />
+              <img id="pcThumb" alt="Planetary Computer preview" class="w-full rounded-lg shadow border border-gray-200 hidden" />
             </div>
           </div>
-
-          <!-- Earth‑Search preview -->
           <div class="flex-1">
             <h3 class="text-sm font-medium text-gray-700 mb-1">Earth‑Search preview</h3>
             <div class="relative w-full">
-              <div
-                id="esSpinner"
-                class="absolute inset-0 flex items-center justify-center"
-              >
+              <div id="esSpinner" class="absolute inset-0 flex items-center justify-center">
                 <div class="h-6 w-6 border-2 border-t-transparent border-emerald-600 rounded-full animate-spin"></div>
               </div>
-              <img
-                id="esThumb"
-                alt="Earth‑Search preview image"
-                class="w-full rounded-lg shadow border border-gray-200 hidden"
-              />
+              <img id="esThumb" alt="Earth‑Search preview" class="w-full rounded-lg shadow border border-gray-200 hidden" />
             </div>
           </div>
         </div>
@@ -122,13 +78,12 @@
       <p id="error" class="text-red-600 text-sm"></p>
 
       <footer class="text-xs text-gray-500 pt-4 border-t border-gray-200 text-center">
-        Paste an ID, click Convert, copy what you need. Deploy this single HTML
-        file to GitHub Pages and you’re done.
+        Deploy this single HTML file to GitHub Pages and you’re set.
       </footer>
     </div>
 
     <script>
-      // Auto‑convert if a hash is present
+      // Pre‑fill from hash on load
       window.addEventListener('DOMContentLoaded', () => {
         const hash = decodeURIComponent(window.location.hash.slice(1));
         if (hash) {
@@ -138,90 +93,103 @@
       });
 
       async function convert() {
-        const inputVal = document.getElementById('input').value.trim();
+        const rawInput = document.getElementById('input').value.trim();
         const errorEl = document.getElementById('error');
         errorEl.textContent = '';
 
-        // Extract the item ID if a full Planetary Computer URL was pasted
-        let id = inputVal;
-        const idx = inputVal.indexOf('/items/');
-        if (idx !== -1) {
-          id = inputVal.substring(idx + 7);
-        }
+        // Extract item ID from full URL if needed
+        let id = rawInput;
+        const idx = id.indexOf('/items/');
+        if (idx !== -1) id = id.slice(idx + 7);
 
-        // Regex for Planetary Computer Sentinel‑2 L2A product IDs
-        const match = id.match(
-          /^(S2[AB])_MSIL2A_(\d{8})T\d{6}_R\d{3}_T(\d{2}[A-Z]{3})_/
-        );
-        if (!match) {
-          errorEl.textContent =
-            'Could not parse that ID — is it a Sentinel‑2 L2A product?';
+        // Validate & parse Planetary ID
+        const m = id.match(/^(S2[AB])_MSIL2A_(\d{8})T\d{6}_R\d{3}_T(\d{2}[A-Z]{3})_/);
+        if (!m) {
+          errorEl.textContent = 'Could not parse that ID — is it a Sentinel‑2 L2A product?';
           document.getElementById('output').classList.add('hidden');
           return;
         }
 
-        // Update URL hash so the page is shareable
+        // Update shareable hash
         window.location.hash = encodeURIComponent(id);
 
-        const sat = match[1];
-        const date = match[2];
-        const tile = match[3];
-
+        const [ , sat, date, tile ] = m;
         const earthId = `${sat}_${tile}_${date}_0_L2A`;
         const earthUrl = `https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/${earthId}`;
         const pcUrl = `https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-2-l2a/items/${id}`;
 
-        // Populate text/links
+        // Show basic info
         document.getElementById('earthId').textContent = earthId;
-
-        const pcUrlEl = document.getElementById('pcUrl');
-        pcUrlEl.textContent = pcUrl;
-        pcUrlEl.href = pcUrl;
-
-        const earthUrlEl = document.getElementById('earthUrl');
-        earthUrlEl.textContent = earthUrl;
-        earthUrlEl.href = earthUrl;
-
+        document.getElementById('pcUrl').textContent = pcUrl;
+        document.getElementById('pcUrl').href = pcUrl;
+        document.getElementById('earthUrl').textContent = earthUrl;
+        document.getElementById('earthUrl').href = earthUrl;
         document.getElementById('output').classList.remove('hidden');
 
-        // Prepare spinners & hide images
+        // Init spinners
         document.getElementById('thumbs').classList.remove('hidden');
         toggleLoading('pc', true);
         toggleLoading('es', true);
 
-        // Load thumbnails
+        // Load previews
         await loadThumbnails(pcUrl, earthUrl);
       }
 
       async function loadThumbnails(pcUrl, earthUrl) {
-        const pcThumbEl = document.getElementById('pcThumb');
-        const esThumbEl = document.getElementById('esThumb');
+        const pcThumb = document.getElementById('pcThumb');
+        const esThumb = document.getElementById('esThumb');
 
         try {
-          /* Planetary Computer thumbnail */
-          const pcResp = await fetch(pcUrl);
-          if (pcResp.ok) {
-            const pcJson = await pcResp.json();
-            const pcThumb = pcJson.assets?.rendered_preview?.href;
-            if (pcThumb) {
-              pcThumbEl.onload = () => toggleLoading('pc', false);
-              pcThumbEl.src = pcThumb;
-              pcThumbEl.classList.remove('hidden');
+          // Planetary preview
+          const pcRes = await fetch(pcUrl);
+          if (pcRes.ok) {
+            const pcJson = await pcRes.json();
+            const href = pcJson.assets?.rendered_preview?.href;
+            if (href) {
+              pcThumb.onload = () => toggleLoading('pc', false);
+              pcThumb.src = href;
+              pcThumb.classList.remove('hidden');
             } else {
               toggleLoading('pc', false);
             }
-          } else {
-            toggleLoading('pc', false);
-          }
+          } else toggleLoading('pc', false);
 
-          /* Earth‑Search thumbnail */
-          const esResp = await fetch(earthUrl);
-          if (esResp.ok) {
-            const esJson = await esResp.json();
-            const esThumb =
-              esJson.assets?.rendered_preview?.href ||
-              esJson.links?.find((l) => l.rel === 'thumbnail')?.href;
-            if (esThumb) {
-              esThumbEl.onload = () => toggleLoading('es', false);
-              esThumbEl.src = esThumb;
-              esThumbEl.classList.remove
+          // Earth‑Search preview
+          const esRes = await fetch(earthUrl);
+          if (esRes.ok) {
+            const esJson = await esRes.json();
+            const href = esJson.assets?.rendered_preview?.href || esJson.links?.find(l => l.rel === 'thumbnail')?.href;
+            if (href) {
+              esThumb.onload = () => toggleLoading('es', false);
+              esThumb.src = href;
+              esThumb.classList.remove('hidden');
+            } else {
+              toggleLoading('es', false);
+            }
+          } else toggleLoading('es', false);
+        } catch (e) {
+          console.error(e);
+          toggleLoading('pc', false);
+          toggleLoading('es', false);
+        }
+      }
+
+      function toggleLoading(prefix, loading) {
+        const spinner = document.getElementById(`${prefix}Spinner`);
+        const img = document.getElementById(`${prefix}Thumb`);
+        if (loading) {
+          spinner.classList.remove('hidden');
+          img.classList.add('hidden');
+        } else {
+          spinner.classList.add('hidden');
+          // img visibility set by load handler
+        }
+      }
+
+      function copyText(id) {
+        const txt = document.getElementById(id).textContent;
+        navigator.clipboard.writeText(txt);
+      }
+    </script>
+  </body>
+</html>
