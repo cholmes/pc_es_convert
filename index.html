@@ -19,7 +19,8 @@
         This utility converts <strong>Sentinel‑2 Level‑2A COGs</strong> referenced in
         Microsoft’s Planetary Computer STAC items to their matching
         <strong>Earth‑Search</strong> STAC items backed by the AWS public Level‑2A COG
-        archive.
+        archive. Shareable URLs are created using the <code>#hash</code> so friends can open
+        the page pre‑filled.
       </p>
 
       <label class="block">
@@ -121,11 +122,21 @@
       <p id="error" class="text-red-600 text-sm"></p>
 
       <footer class="text-xs text-gray-500 pt-4 border-t border-gray-200 text-center">
-        Paste an ID, click Convert, copy what you need.
+        Paste an ID, click Convert, copy what you need. Deploy this single HTML
+        file to GitHub Pages and you’re done.
       </footer>
     </div>
 
     <script>
+      // Auto‑convert if a hash is present
+      window.addEventListener('DOMContentLoaded', () => {
+        const hash = decodeURIComponent(window.location.hash.slice(1));
+        if (hash) {
+          document.getElementById('input').value = hash;
+          convert();
+        }
+      });
+
       async function convert() {
         const inputVal = document.getElementById('input').value.trim();
         const errorEl = document.getElementById('error');
@@ -148,6 +159,9 @@
           document.getElementById('output').classList.add('hidden');
           return;
         }
+
+        // Update URL hash so the page is shareable
+        window.location.hash = encodeURIComponent(id);
 
         const sat = match[1];
         const date = match[2];
@@ -210,36 +224,4 @@
             if (esThumb) {
               esThumbEl.onload = () => toggleLoading('es', false);
               esThumbEl.src = esThumb;
-              esThumbEl.classList.remove('hidden');
-            } else {
-              toggleLoading('es', false);
-            }
-          } else {
-            toggleLoading('es', false);
-          }
-        } catch (err) {
-          console.error('Thumbnail fetch error', err);
-          toggleLoading('pc', false);
-          toggleLoading('es', false);
-        }
-      }
-
-      function toggleLoading(prefix, isLoading) {
-        const spinner = document.getElementById(`${prefix}Spinner`);
-        const img = document.getElementById(`${prefix}Thumb`);
-        if (isLoading) {
-          spinner.classList.remove('hidden');
-          img.classList.add('hidden');
-        } else {
-          spinner.classList.add('hidden');
-          // img visibility handled onload
-        }
-      }
-
-      function copyText(elId) {
-        const text = document.getElementById(elId).textContent;
-        navigator.clipboard.writeText(text);
-      }
-    </script>
-  </body>
-</html>
+              esThumbEl.classList.remove
